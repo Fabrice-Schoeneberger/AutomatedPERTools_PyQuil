@@ -3,3 +3,4 @@ __pycache__
 *.log
 .venv/
 copy_file_over.bat
+experiment.pickle

@@ -191,6 +191,7 @@ class PyquilCircuit(Circuit):
         pauli_length = 0
         if pauli_term.get_qubits() != []:
             pauli_length = 1+max(pauli_term.get_qubits())
+        pauli_length = max([pauli.pauli_length, pauli_length])
         return PyQuilPauli(pauli_term.pauli_string(range(pauli_length)))
 
     @property

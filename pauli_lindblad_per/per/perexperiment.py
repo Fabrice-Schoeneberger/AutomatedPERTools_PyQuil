@@ -4,6 +4,7 @@ from pauli_lindblad_per.per.perrun import PERRun
 from primitives.processor import PyQuilProcessor
 import logging
 import multiprocessing
+import time
 
 logger = logging.getLogger("experiment")
 
@@ -33,7 +34,7 @@ class PERExperiment:
         circuit_interface = None
 
         #check if circuits have implementable type, and initialize processor
-        if circuits[0].__class__.__name__ == "QuantumCircuit":
+        if circuits[0].__class__.__name__ == "Program":
             circuit_interface = PyquilCircuit
             if backend:
                 self._processor = PyQuilProcessor(backend)
@@ -75,7 +76,7 @@ class PERExperiment:
         logger.info(meas_bases)
         self.meas_bases = meas_bases
 
-    def run(self, executor):
+    def run(self, executor, shots, do_cross_talk=False, apply_cross_talk=None):
         """pass a list of circuit in the native language to the executor method and await results
 
         Args:
@@ -89,13 +90,26 @@ class PERExperiment:
        
         #get circuits in native representation
         circuits = [inst.get_circuit() for inst in instances] 
+        
+        if do_cross_talk and apply_cross_talk:
+            circuits = apply_cross_talk(circuits, self._processor._qpu)
+
+        logger.info(len(circuits))
 
         #pass circuit to executor
-        results = executor(circuits)
+        results = executor(circuits, self._processor._qpu, shots)
        
         #add results to instances 
         for inst, res in zip(instances, results):
             inst.add_result(res)
+        
+        cycling = False
+
+        for run in self._per_runs:
+            cycling = run.cycle_data() # All runs should return the same data so this should be fine
+
+        if not cycling:
+            self.run(executor) # recursivly call this function until all instances have been dealt with
 
     def analyze(self):
 
@@ -130,24 +144,23 @@ class PERExperiment:
         self.manager = multiprocessing.Manager()  # Use a manager to handle shared data
         self._per_runs = self.manager.list() # Use a managed list for shared data between processes
 
-        processes  = []
         self.debug = 0
         #initialize PERRun for each PERCircuit
         for pcirc in self._per_circuits:
             #cut the generation of the PER Circuit into many threads to profit from multicore CPU performance
-            process = multiprocessing.Process(target=_make_PERRUN, args=(self._processor, self._inst_map, expectations, samples, noise_strengths, self.meas_bases, pcirc, self._per_runs))
-            processes.append(process)
+            process = multiprocessing.Process(target=_make_PERRUN, args=(self._inst_map, expectations, samples, noise_strengths, self.meas_bases, pcirc, self._per_runs))
             process.start()
             #This is the old non multithreding way:
             #per_run = PERRun(self._processor, self._inst_map, pcirc, samples, noise_strengths, self.meas_bases, expectations)
             #self._per_runs.append(per_run)
-        for process in processes:
-            process.join()
+        while len(multiprocessing.active_children()) > 1:
+            time.sleep(1)
+            pass
         #changing the type from the mulitprocess list to a normal list
         self._per_runs = list(self._per_runs)
+        self.manager = None
 
-
-def _make_PERRUN(processor, inst_map, expectations, samples, noise_strengths, meas_bases, pcirc, per_runs):
+def _make_PERRUN(inst_map, expectations, samples, noise_strengths, meas_bases, pcirc, per_runs):
     """ This funktion is here to be called async from generate """
-    per_run = PERRun(processor, inst_map, pcirc, samples, noise_strengths, meas_bases, expectations)
+    per_run = PERRun(inst_map, pcirc, samples, noise_strengths, meas_bases, expectations)
     per_runs.append(per_run)

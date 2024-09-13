@@ -106,9 +106,8 @@ class PyQuilPauli(Pauli):
         # Import has to be here cause calling self.H(q) will transmit 2 arguments and break the code
         from pyquil.gates import H, S
         circ = qc.copy_empty() #copy_everything_except_instructions()
-        label = self.to_label()
         for q in qc.qc.get_qubit_indices(): #this may not work, because qc.get_qubit_indices() only returns used qubits. But then, is it important?
-            p = label[q]
+            p = self.pauli.pauli_string([q])
             if p == "X":
                 circ.qc += H(q)
             elif p == "Y":
@@ -122,9 +121,8 @@ class PyQuilPauli(Pauli):
 
     def __mul__(self, other):
         result = self.pauli * other.pauli
-        pauli_length = 0
-        if result.get_qubits() != []:
-            pauli_length = 1+max(result.get_qubits())
+        pauli_length = max([self.pauli_length, other.pauli_length])
+        
         return PyQuilPauli(result.pauli_string(range(pauli_length)))
 
     def __getitem__(self, item):
@@ -132,6 +130,6 @@ class PyQuilPauli(Pauli):
 
     def __setitem__(self, key, newvalue):
         label = self.to_label()
-        label[key] = newvalue.pauli
+        label = label[:key] + newvalue.to_label() + label[key+1:]
         self.pauli = self.PauliTerm.from_list([(p,i) for i, p in enumerate(label)])
         #self.pauli.__setitem__(key, newvalue.pauli)

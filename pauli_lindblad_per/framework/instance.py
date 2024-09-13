@@ -76,8 +76,8 @@ class Instance:
         # I think this should be good, but check later again: todo
         ro_untwirled = {}
         rostring = self._rostring
-        logger.info(self._rostring)
-        logger.info(self._result)
+        #logger.info(self._rostring)
+        #logger.info(self._result)
         for key in self._result:
             newkey = "".join([{'0':'1','1':'0'}[str(bit)] if flip=="X" else str(bit) for bit,flip in zip(key,rostring)])
             ro_untwirled[newkey] = self._result[key]

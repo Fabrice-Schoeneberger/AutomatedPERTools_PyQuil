@@ -112,6 +112,7 @@ def main():
     #prog += CNOT(0,1)
     prog += CNOT(0,1)
     pauli = PauliTerm.from_list([(p,i) for i, p in enumerate("XY")])
+    print(pauli.pauli_string([3]))
     #print(pauli.pauli_string(range(1+max(pauli.get_qubits()))))
     #print(conjugate_pauli_with_cliffords(pauli, prog).pauli_string(range(1+max(pauli.get_qubits()))))
     # %%

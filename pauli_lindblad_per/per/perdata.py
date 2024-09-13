@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
@@ -96,7 +97,7 @@ class PERData:
             raise Exception("Fitting failed. Probably not enough data points!")
         a,b = popt
         self.expectation = a
-        self.expectation_error = pcov[0]
+        self.expectation_error = math.sqrt(pcov[0][0])
         return a,b
 
     def plot(self):

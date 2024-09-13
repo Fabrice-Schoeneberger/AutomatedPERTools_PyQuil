@@ -1,30 +1,24 @@
-class test:
-    import pyquil.paulis as Pauli
-    from pyquil.paulis import PauliTerm
+class test1:
+    def __init__(self, other_class):
+        self.other_class = other_class
 
-    def __init__(self, string: str):
-        self.string = string
-    def __str__(self) -> str:
-        return "testing"
-    def __getitem__(self, item):
-        return self.string[item]
-    def addH(self, qc):
-        from pyquil.gates import H, S
-        qc += H(qubit=0)
-        return qc
+class test2:
+    def __init__(self, some_number):
+        self.some_number = some_number
 
-from pyquil import get_qc, Program
-from pyquil.gates import CNOT, Z, MEASURE, S, X, Y, I, FENCE
-from pyquil.api import local_forest_runtime
-from pyquil.quilbase import Declare
-import pyquil.paulis as Pauli
-from pyquil.paulis import PauliTerm
-import networkx as nx
-from pyquil.quantum_processor import NxQuantumProcessor
-from pyquil.noise import decoherence_noise_with_asymmetric_ro
+class test3:
+    def __init__(self):
+        self.t2 = test2(5)
+        self.t1 = test1(self.t2)
 
-with local_forest_runtime():
-    prog = Program(Z(0), X(0))
-    a = test("Hallo")
-    prog = a.addH(prog)
-    print(prog)
+t3 = test3()
+
+print(t3.t2.some_number)
+print(t3.t1.other_class.some_number)
+
+t3.t2 = None
+try:
+    print(t3.t2.some_number)
+except:
+    pass
+print(t3.t1.other_class.some_number)

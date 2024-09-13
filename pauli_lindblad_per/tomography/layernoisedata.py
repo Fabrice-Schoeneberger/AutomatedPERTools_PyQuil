@@ -106,6 +106,7 @@ class LayerNoiseData:
             if self._issingle(datum):
                 F2.append(datum.pauli)
             else:
+                logger.info(datum.pair)
                 pair = datum.pair
                 F2.append(pair)
 
