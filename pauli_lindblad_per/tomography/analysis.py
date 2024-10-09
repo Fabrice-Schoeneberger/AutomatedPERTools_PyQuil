@@ -58,6 +58,10 @@ class Analysis:
     def get_layer_data(self, layer):
         """Return a LayerNoiseData object with learning data for the layer"""
         return list(self._data.values())[layer]
+    
+    def get_all_layer_data(self):
+        """Return a list of LayerNoiseData objects with learning data"""
+        return list(self._data.values())
 
     def save(self):
         raise NotImplementedError()

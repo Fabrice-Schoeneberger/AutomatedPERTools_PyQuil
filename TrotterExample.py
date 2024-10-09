@@ -1,7 +1,30 @@
-def print_time():
+import time
+tim = time.time()
+laststring = ""
+last_time_string = ""
+def print_time(printstring=""):
+    global tim, laststring, last_time_string
     import time
-    tim = time.localtime()
-    print("%02d.%02d. %02d:%02d:%02d" % (tim.tm_mday, tim.tm_mon, tim.tm_hour, tim.tm_min, tim.tm_sec))
+    local_tim = time.localtime()
+    new_tim = time.time()
+    time_difference = new_tim-tim
+    tim = new_tim
+    days = int(time_difference // (24 * 3600))
+    time_difference %= (24 * 3600)
+    hours = int(time_difference // 3600)
+    time_difference %= 3600
+    minutes = int(time_difference // 60)
+    seconds = int(time_difference % 60)
+    st = f" Time taken: {days:02}:{hours:02}:{minutes:02}:{seconds:02}"
+    if not (laststring == "" and last_time_string == ""):
+        print(laststring+last_time_string+st)    
+    while len(printstring) < 24:
+        printstring += " "
+    printstring+="\t"
+    laststring = printstring
+    local_time_string = "%02d.%02d. %02d:%02d:%02d" % (local_tim.tm_mday, local_tim.tm_mon, local_tim.tm_hour, local_tim.tm_min, local_tim.tm_sec)
+    last_time_string = local_time_string
+    print(printstring+local_time_string+" Time taken: --:--:--:--", end="\r")
 
 def make_initial_Circuit(qubits, num_qubits, backend, n):
     from pyquil import Program
@@ -54,7 +77,8 @@ def get_backend(args, return_perfect=False, return_backend_qubits=False):
     # You would uncomment the next line if you have disconnected qubits
     # topo.add_nodes_from(qubits)
     quantum_processor = NxQuantumProcessor(topo)
-    quantum_processor.noise_model = decoherence_noise_with_asymmetric_ro(quantum_processor.to_compiler_isa())  # Optional
+    #quantum_processor.noise_model = decoherence_noise_with_asymmetric_ro(quantum_processor.to_compiler_isa())
+    quantum_processor.noise_model = get_noise_model()[0] 
     backend.compiler.quantum_processor = quantum_processor
     if not return_perfect:
         return backend
@@ -64,6 +88,27 @@ def get_backend(args, return_perfect=False, return_backend_qubits=False):
     perfect_backend.compiler.quantum_processor = perfect_quantum_processor
     if return_perfect:
         return perfect_backend
+
+def get_noise_model():
+    from pyquil.paulis import PauliTerm
+    from pyquil.noise import NoiseModel
+    # Define Pauli operations using PauliTerm
+    twoqubit_errorops = [
+        PauliTerm('Z', 0) * PauliTerm('Y', 1),  # Pauli('YZ')
+        PauliTerm('Y', 0) * PauliTerm('I', 1),  # Pauli('IY')
+        PauliTerm('Y', 0) * PauliTerm('Y', 1),  # Pauli('YY')
+        PauliTerm('Y', 0) * PauliTerm('X', 1),  # Pauli('XY')
+        PauliTerm('I', 0) * PauliTerm('I', 1)   # Pauli('XY')
+    ]
+
+    # Corresponding probabilities
+    twoqubit_errorprobs = [0.008802700270751796, 0.0032989083407153896, 0.01917444731546973, 0.019520575974201874]
+    twoqubit_errorprobs.append(1-sum(twoqubit_errorprobs))
+
+    twoqubit_error_template = [(op, p) for op,p in zip(twoqubit_errorops, twoqubit_errorprobs)]
+    singlequbit_error_template = []
+    # Create a NoiseModel object
+    return (NoiseModel(twoqubit_errorops, twoqubit_errorprobs), twoqubit_error_template, singlequbit_error_template)
 
 def executor(circuits, backend, shots):
     def take_counts(array):
@@ -100,20 +145,47 @@ def calculate_with_simple_backend(circuits, shots, persamples, backend, qubits, 
 def apply_cross_talk_proxy(circuits, backend):
     return circuits #TODO: Implement this
 
+def circuit_to_layers(qc):
+    layers = []
+    inst_list = [inst for inst in qc if not inst.ismeas()] 
+
+    #pop off instructions until inst_list is empty
+    while inst_list:
+
+        circ = qc.copy_empty() #blank circuit to add instructions
+        layer_qubits = set() #qubits in the support of two-qubit clifford gates
+
+        for inst in inst_list.copy(): #iterate through remaining instructions
+
+            #check if current instruction overlaps with support of two-qubit gates
+            #already on layer
+            if not layer_qubits.intersection(inst.support()):
+                circ.add_instruction(inst) #add instruction to circuit and pop from list
+                inst_list.remove(inst)
+
+            if inst.weight() >= 2:
+                layer_qubits = layer_qubits.union(inst.support()) #add support to layer
+
+        if circ: #append only if not empty
+            layers.append(circ)
+
+    return layers
+
+# %% Start main(), Define the optional arguments
 def main():
     import argparse
     parser = argparse.ArgumentParser()
         
     # Define an Argument
-    parser.add_argument('--plusone', '-p', help='Takes Neighboring qubits into account', default=False, action='store_true')
+    #parser.add_argument('--plusone', '-p', help='Takes Neighboring qubits into account', default=False, action='store_true')
     parser.add_argument('--sum', '-s', help='Same as -p and turns sumation on over neighboring qubits', default=False, action='store_true')
     parser.add_argument('--pntsamples', type=int, help='How many samples in PNT? Default: 16', default=16)
     parser.add_argument('--pntsinglesamples', type=int, help='How many single samples in PNT? Default: 100', default=100)
     parser.add_argument('--persamples', type=int, help='How many samples in PER? Default: 100', default=100)
     parser.add_argument('--shots', type=int, help='How many shots? Default: 1024', default=1024)
-    parser.add_argument('--backend', type=str, help='Which backend to use? Default: FakeVigoV2', default="FakeVigoV2")
+    parser.add_argument('--backend', type=str, help='Which backend to use? Default: Line5', default="Line5")
     parser.add_argument('--cross', '-c', help='Simulates Cross Talk Noise', default=False, action='store_true')
-    parser.add_argument('--allqubits', '-a', help='runs over all qubits in the tomography', default=False, action='store_true')
+    #parser.add_argument('--allqubits', '-a', help='runs over all qubits in the tomography', default=False, action='store_true')
     parser.add_argument('--onlyTomography', help='Only does the tomography and then ends the program', default=False, action='store_true')
     parser.add_argument('--setqubits', type=int, nargs='+', help='Which qubits to use?: Default: 0123 and transpile')
     parser.add_argument('--depths', type=int, nargs='+', help='Decide the depths of the pnt-samples. Default: [2,4,8,16]')
@@ -126,7 +198,7 @@ def main():
     from matplotlib import pyplot as plt
     import os
     import json
-    print_time()
+    print_time("Starting")
 
     import os
     import sys
@@ -160,11 +232,7 @@ def main():
     if args.depths != None:
         depths = args.depths
     do_cross_talk_noise = args.cross
-    tomography_connections = args.plusone
     sum_over_lambda = args.sum
-    if sum_over_lambda:
-        tomography_connections = True
-    tomography_all_qubits = args.allqubits
     onlyTomography = args.onlyTomography
 
     pntsamples = args.pntsamples
@@ -199,40 +267,52 @@ def main():
     #circuits[0].draw()
 
     # %% initialize experiment
-    print("initialize experiment")
-    print_time()
-    experiment = tomography(circuits = circuits, inst_map = [i for i in range(get_backend(args, return_backend_qubits=True))], backend = backend, tomography_connections=tomography_connections, sum_over_lambda=sum_over_lambda, tomography_all_qubits=tomography_all_qubits)
+    print_time("initialize experiment")
+    experiment = tomography(circuits = circuits, inst_map = [i for i in range(get_backend(args, return_backend_qubits=True))], backend = backend, sum_over_lambda=sum_over_lambda)
 
     import multiprocessing
     # %% generate PNT circuits
-    print("generate circuits")
-    print_time()
+    print_time("generate circuits")
     experiment.generate(samples = pntsamples, single_samples = pntsinglesamples, depths = depths)
 
     # %% run PNT experiment
-    print("run experiment")
-    print_time()
+    print_time("run experiment")
     experiment.run(executor, shots, do_cross_talk=do_cross_talk_noise, apply_cross_talk=apply_cross_talk_proxy)
 
     # %% analyse PNT experiment. End Tomography Only
+    print_time("analyse experiment")
+    noisedataframe = experiment.analyze()
+    # %% Save all the data. End Tomography Only
+    print_time("Saving data")
     with open(namebase + "experiment.pickle", "wb") as f:
         processor = experiment._procspec._processor
         experiment._procspec._processor = None
         pickle.dump(experiment, f)
         experiment._procspec._processor = processor
-    print("analyse experiment")
-    print_time()
-    noisedataframe = experiment.analyze()
 
-    with open(namebase + "noisedataframe.pickle", "wb") as f:
-        pickle.dump(noisedataframe, f)
+    coeffs_dict_list = []
+    infidelities_list = []
+    for layer in experiment.analysis.get_all_layer_data():
+        coeffs_dict = dict(layer.noisemodel.coeffs)
+        infidelities = {term: 1-layer._term_data[term].fidelity for term in layer._term_data}
+        coeffs_dict_list.append(coeffs_dict)
+        infidelities_list.append(infidelities)
+    os.makedirs("server_run_collection/"+namebase, exist_ok=True)
+    with open("server_run_collection/" + namebase + "coeffs.pickle", "wb") as f:
+        pickle.dump(coeffs_dict_list, f)
+    with open("server_run_collection/" + namebase + "infidelities.pickle", "wb") as f:
+        pickle.dump(infidelities_list, f)
+    (noise_model, twoqubit_error_template, singlequbit_error_template) = get_noise_model()
+    with open("server_run_collection/" + namebase + "noise_model.pickle", "wb") as f:
+       pickle.dump((noise_model, twoqubit_error_template, singlequbit_error_template), f)
+        
+    #process.join()
     if onlyTomography:
-        print("Tomography Ended")
-        print_time()
+        print_time("Tomography Ended")
+        print("")
         return
     # %% create per experiment
-    print("Create PER Experiment")
-    print_time()
+    print_time("Create PER Experiment")
     perexp = experiment.create_per_experiment(circuits)
 
     # %% generate per experiment and noise strengths
@@ -242,23 +322,19 @@ def main():
         expect = "I"*(get_backend(args, return_backend_qubits=True)) #15
         expect = expect[:q] + 'Z' + expect[q+1:]
         expectations.append("".join(reversed(expect)))
-    print("do PER runs")
-    print_time()
+    print_time("do PER runs")
     perexp.generate(expectations = expectations, samples = persamples, noise_strengths = noise_strengths)
     # %% Run PER
-    print("Run PER")
-    print_time()
+    print_time("Run PER")
     if len(multiprocessing.active_children()) > 1:
         raise Exception("Too many children")
     perexp.run(executor, shots, do_cross_talk=do_cross_talk_noise, apply_cross_talk=apply_cross_talk_proxy)
 
     # %% Analyze PER and Delete Pickled PERrun Data
-    print("Analyze PER")
-    print_time()
+    print_time("Analyze PER")
     circuit_results = perexp.analyze()
 
-    print("Delete Pickled PERrun Data")
-    print_time()
+    print_time("Delete Pickled PERrun Data")
     perexp.delete_pickles()
 
     # %% Extract data
@@ -336,6 +412,7 @@ def main():
         pickle.dump(circuit_results, f)
 
     print_time()
+    print("")
     """ for i in range (len(expectations)):
         ax = circuit_results[0].get_result(expectations[i]).plot()
         plt.title("Expectation vs Noise Strength " + expectations[i])
@@ -343,18 +420,7 @@ def main():
         plt.ylabel("Expectation")
         plt.savefig(namebase+"_Expectation_vs_Noise_Strength_" + expectations[i] + ".png") """
 
-
-
-
-
-
-
-
-
-
-
-
-from pyquil.api import local_forest_runtime
+# %% Start Program
 if __name__ == "__main__":
     from sys import platform
     if platform == "linux" or platform == "linux2":
@@ -364,6 +430,7 @@ if __name__ == "__main__":
         raise Exception("IOS Not supported")
         # OS X
     elif platform == "win32":
+        from pyquil.api import local_forest_runtime
         with local_forest_runtime():
             main()
         # Windows...
