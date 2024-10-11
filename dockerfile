@@ -4,4 +4,4 @@ WORKDIR /usr/local/bin
 
 COPY . .
 
-CMD ["python", "pyquil_program.py"]
+CMD ["python", "test.py"]

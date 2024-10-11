@@ -90,16 +90,29 @@ def get_backend(args, return_perfect=False, return_backend_qubits=False):
         return perfect_backend
 
 def get_noise_model():
-    from pyquil.paulis import PauliTerm
-    from pyquil.noise import NoiseModel
+    import numpy as np
     # Define Pauli operations using PauliTerm
-    twoqubit_errorops = [
-        PauliTerm('Z', 0) * PauliTerm('Y', 1),  # Pauli('YZ')
-        PauliTerm('Y', 0) * PauliTerm('I', 1),  # Pauli('IY')
-        PauliTerm('Y', 0) * PauliTerm('Y', 1),  # Pauli('YY')
-        PauliTerm('Y', 0) * PauliTerm('X', 1),  # Pauli('XY')
-        PauliTerm('I', 0) * PauliTerm('I', 1)   # Pauli('XY')
-    ]
+    # Defining the Pauli matrices
+    I = np.array([[1.+0.j, 0.+0.j],
+                [0.+0.j, 1.+0.j]])
+
+    X = np.array([[0.+0.j, 1.+0.j],
+                [1.+0.j, 0.+0.j]])
+
+    Y = np.array([[0.+1.j, 0.+0.j],
+                [0.+0.j, 0.-1.j]])
+
+    Z = np.array([[1.+0.j, 0.+0.j],
+                [0.+0.j, -1.+0.j]])
+
+    # Pauli products
+    pauli_YZ = np.kron(Y, Z)
+    pauli_IY = np.kron(I, Y)
+    pauli_YY = np.kron(Y, Y)
+    pauli_XY = np.kron(X, Y)
+    pauli_II = np.kron(I, I)
+
+    twoqubit_errorops = [pauli_YZ, pauli_IY, pauli_YY, pauli_XY, pauli_II]
 
     # Corresponding probabilities
     twoqubit_errorprobs = [0.008802700270751796, 0.0032989083407153896, 0.01917444731546973, 0.019520575974201874]
@@ -108,7 +121,7 @@ def get_noise_model():
     twoqubit_error_template = [(op, p) for op,p in zip(twoqubit_errorops, twoqubit_errorprobs)]
     singlequbit_error_template = []
     # Create a NoiseModel object
-    return (NoiseModel(twoqubit_errorops, twoqubit_errorprobs), twoqubit_error_template, singlequbit_error_template)
+    return ([np.sqrt(p) * op for op, p in zip(twoqubit_errorops, twoqubit_errorprobs)], twoqubit_error_template, singlequbit_error_template)
 
 def executor(circuits, backend, shots):
     def take_counts(array):
@@ -121,7 +134,7 @@ def executor(circuits, backend, shots):
         return dic
     counts = []
     for circuit in circuits:
-        result = backend.run(backend.compile(circuit.wrap_in_numshots_loop(shots=shots))).get_register_map()['ro']
+        result = backend.run((circuit.wrap_in_numshots_loop(shots=shots))).get_register_map()['ro']
         counts.append(take_counts(result))
     return counts
 
