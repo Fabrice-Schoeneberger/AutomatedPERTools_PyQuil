@@ -17,11 +17,12 @@ class LayerNoiseData:
     """This class is responsible for aggregating the data associated with a single layer,
     processing it, and converting it into a noise model to use for PER"""
 
-    def __init__(self, layer : LayerLearning, sum_over_lambda=False, plusone = set()):
+    def __init__(self, layer : LayerLearning, sum_over_lambda=False, plusone = set(), used_qubits = None):
         self._term_data = {} #keys are terms and the values are TermDatas
         self.layer = layer
         self.sum_over_lambda=sum_over_lambda
         self.plusone = plusone
+        self.used_qubits = used_qubits
 
         for pauli in layer._procspec.model_terms:
             pair = layer.pairs[pauli]
@@ -96,10 +97,26 @@ class LayerNoiseData:
         def sprod(a,b): #simplecting inner product between two Pauli operators
             return int(not a.commutes(b))
 
+        def get_indexes(string):
+            indexes = []
+            for i, f in enumerate(string):
+                if f != "I":
+                    indexes.append(len(string)- i-1)
+            return indexes
+
         F1 = [] #First list of terms
         F2 = [] #List of term pairs
         fidelities = [] # list of fidelities from fits
         for datum in self._term_data.values():
+            pauli = datum.pauli
+            indexes = get_indexes(str(pauli))
+            if not self.used_qubits is None:
+                skip = False
+                for index in indexes:
+                    if not index in self.used_qubits:
+                        skip = True
+                if skip:
+                    continue
             F1.append(datum.pauli)
             fidelities.append(datum.fidelity)
             #If the Pauli is conjugate to another term in the model, a degeneracy is present

@@ -68,7 +68,10 @@ class Instance:
     def _basis_change(self):
         """Apply operators to change from the measurement basis into the computational basis
         """
-        self._circ.compose(self.meas_basis.basis_change(self._circ).inverse()) #todo
+        hcirc = self.meas_basis.basis_change(self._circ).inverse()
+        if not self._procspec is None:
+            hcirc = self._procspec._processor.compile(hcirc)
+        self._circ.compose(hcirc) #TODO
         
     def _untwirl_result(self):
         """Return a dictionary of results with the effect of the readout twirling accounted for.

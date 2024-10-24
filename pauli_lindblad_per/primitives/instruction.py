@@ -40,18 +40,20 @@ class PyQuilInstruction(Instruction):
         self.instruction = instruction
     
     def support(self):
-        if self.instruction._InstructionMeta__name == 'Declare':
+        if self.instruction._InstructionMeta__name == 'Declare' or self.instruction._InstructionMeta__name == 'Halt':
             return tuple([])
         if hasattr(self.instruction, "qubits"):
             return tuple([q.index for q in self.instruction.qubits])
         elif hasattr(self.instruction, "qubit"):
             return tuple([self.instruction.qubit.index])
         else:
-            raise Exception(self.instruction + " has no qubits")
+            raise Exception(str(self.instruction) + " has no qubits")
 
     def name(self):
         if self.instruction._InstructionMeta__name == "Measurement":
             return "Measurement"
+        elif self.instruction._InstructionMeta__name == "Halt":
+            return "Halt"
         else:
             return self.instruction.name
 

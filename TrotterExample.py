@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger("experiment")
+
 import time
 tim = time.time()
 laststring = ""
@@ -58,13 +61,23 @@ def make_initial_Circuit(qubits, num_qubits, backend, n):
 
     return [maketrotterCircuit(i) for i in range(1,15)]
 
+def make_initial_Circuit2(backend):
+    from pyquil import Program
+    from pyquil.gates import H, CNOT, Z, MEASURE, S, X, Y, I, RX, RZ, FENCE
+    from pyquil.quilbase import Declare
+    prog = Program()
+    prog += Declare("ro", "BIT", 2)
+    prog += CNOT(0,1)
+    #prog += CNOT(0,1)
+    return [prog]
+
 def get_backend(args, return_perfect=False, return_backend_qubits=False):
     # Here the backend for the simulation is prepared
     from pyquil.quantum_processor import NxQuantumProcessor
     from pyquil.noise import decoherence_noise_with_asymmetric_ro
     from pyquil import get_qc
     import networkx as nx
-    backend = get_qc("5q-qvm") #str(n)+'q-qvm' #args.backend
+    backend = get_qc(str(args.num_qubits) + "q-qvm") #str(n)+'q-qvm' #args.backend
     isa = backend.to_compiler_isa()
     backend_qubits = sorted(int(k) for k in isa.qubits.keys())
     if return_backend_qubits:
@@ -77,53 +90,55 @@ def get_backend(args, return_perfect=False, return_backend_qubits=False):
     # You would uncomment the next line if you have disconnected qubits
     # topo.add_nodes_from(qubits)
     quantum_processor = NxQuantumProcessor(topo)
-    #quantum_processor.noise_model = decoherence_noise_with_asymmetric_ro(quantum_processor.to_compiler_isa())
-    quantum_processor.noise_model = get_noise_model()[0] 
     backend.compiler.quantum_processor = quantum_processor
-    if not return_perfect:
-        return backend
-    # Here the backend without noise is prepared for later comparison
-    perfect_quantum_processor = NxQuantumProcessor(topo)
-    perfect_backend = get_qc(args.backend)
-    perfect_backend.compiler.quantum_processor = perfect_quantum_processor
-    if return_perfect:
-        return perfect_backend
-
+    return backend
+    
 def get_noise_model():
+    #twoqubit_errorops = ['YZ', 'IY', 'YY', 'XY']
+    #twoqubit_errorprobs = [0.008802700270751796, 0.0032989083407153896, 0.01917444731546973, 0.019520575974201874]
+    twoqubit_errorops = ['IX']
+    twoqubit_errorprobs = [0.05]
+    twoqubit_error_template = [(op, p) for op,p in zip(twoqubit_errorops, twoqubit_errorprobs)]+[("II", 1-sum(twoqubit_errorprobs))]
+    return (twoqubit_error_template, [])
+
+def apply_noise_model(prog, backend, error_template, gate):
     import numpy as np
-    # Define Pauli operations using PauliTerm
     # Defining the Pauli matrices
-    I = np.array([[1.+0.j, 0.+0.j],
+    Paulis = {}
+    Paulis['I'] = np.array([[1.+0.j, 0.+0.j],
                 [0.+0.j, 1.+0.j]])
-
-    X = np.array([[0.+0.j, 1.+0.j],
+    Paulis['X'] = np.array([[0.+0.j, 1.+0.j],
                 [1.+0.j, 0.+0.j]])
-
-    Y = np.array([[0.+1.j, 0.+0.j],
+    Paulis['Y'] = np.array([[0.+1.j, 0.+0.j],
                 [0.+0.j, 0.-1.j]])
-
-    Z = np.array([[1.+0.j, 0.+0.j],
+    Paulis['Z'] = np.array([[1.+0.j, 0.+0.j],
                 [0.+0.j, -1.+0.j]])
+    
+    # Define the gates, that can be called
+    Gates = {}
+    Gates['CNOT'] = np.array([[1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 0, 1],
+                    [0, 0, 1, 0]])
+    
+    # Draft the errornes gates
+    noise_model = []
+    for op, p in error_template:
+        errorgate = np.array([[1]])
+        for char in op:
+            errorgate = np.kron(errorgate, Paulis[char])
+        noise_model.append(np.sqrt(p)*np.matmul(errorgate, Gates[gate]))
 
-    # Pauli products
-    pauli_YZ = np.kron(Y, Z)
-    pauli_IY = np.kron(I, Y)
-    pauli_YY = np.kron(Y, Y)
-    pauli_XY = np.kron(X, Y)
-    pauli_II = np.kron(I, I)
+    # Apply the gates to the circuit
+    if np.log2(np.linalg.matrix_rank(errorgate)) == 2:
+        for i, j in backend.qubit_topology().edges:
+            prog.define_noisy_gate(gate, [i,j], noise_model)
+            prog.define_noisy_gate(gate, [j,i], noise_model)
+    elif np.log2(np.linalg.matrix_rank(errorgate)) == 1:
+        for i in backend.qubits():
+            prog.define_noisy_gate(gate, [i], noise_model)
 
-    twoqubit_errorops = [pauli_YZ, pauli_IY, pauli_YY, pauli_XY, pauli_II]
-
-    # Corresponding probabilities
-    twoqubit_errorprobs = [0.008802700270751796, 0.0032989083407153896, 0.01917444731546973, 0.019520575974201874]
-    twoqubit_errorprobs.append(1-sum(twoqubit_errorprobs))
-
-    twoqubit_error_template = [(op, p) for op,p in zip(twoqubit_errorops, twoqubit_errorprobs)]
-    singlequbit_error_template = []
-    # Create a NoiseModel object
-    return ([np.sqrt(p) * op for op, p in zip(twoqubit_errorops, twoqubit_errorprobs)], twoqubit_error_template, singlequbit_error_template)
-
-def executor(circuits, backend, shots):
+def executor(circuits, backend, shots, apply_noise=True):
     def take_counts(array):
         dic = dict()
         for a in array:
@@ -134,6 +149,9 @@ def executor(circuits, backend, shots):
         return dic
     counts = []
     for circuit in circuits:
+        logger.info(circuit)
+        if apply_noise:
+            apply_noise_model(circuit, backend, get_noise_model()[0], "CNOT")
         result = backend.run((circuit.wrap_in_numshots_loop(shots=shots))).get_register_map()['ro']
         counts.append(take_counts(result))
     return counts
@@ -196,12 +214,13 @@ def main():
     parser.add_argument('--pntsinglesamples', type=int, help='How many single samples in PNT? Default: 100', default=100)
     parser.add_argument('--persamples', type=int, help='How many samples in PER? Default: 100', default=100)
     parser.add_argument('--shots', type=int, help='How many shots? Default: 1024', default=1024)
-    parser.add_argument('--backend', type=str, help='Which backend to use? Default: Line5', default="Line5")
+    parser.add_argument('--num_qubits', type=int, help='Define how many qubits the backend should have. Layout: Line? Default: 5', default=5)
     parser.add_argument('--cross', '-c', help='Simulates Cross Talk Noise', default=False, action='store_true')
     #parser.add_argument('--allqubits', '-a', help='runs over all qubits in the tomography', default=False, action='store_true')
     parser.add_argument('--onlyTomography', help='Only does the tomography and then ends the program', default=False, action='store_true')
     parser.add_argument('--setqubits', type=int, nargs='+', help='Which qubits to use?: Default: 0123 and transpile')
     parser.add_argument('--depths', type=int, nargs='+', help='Decide the depths of the pnt-samples. Default: [2,4,8,16]')
+    parser.add_argument('--foldername_extra', type=str, help='Attach something to the end of the foldernamebase', default="")
 
     #  Parse die Argumente
     args = parser.parse_args()
@@ -211,7 +230,6 @@ def main():
     from matplotlib import pyplot as plt
     import os
     import json
-    print_time("Starting")
 
     import os
     import sys
@@ -254,9 +272,11 @@ def main():
     shots = args.shots
 
     # %% Make the initial Circuits
-    print("make trotter")
+    print("")
+    print("Make Circuits")
     n = 2
-    circuits = make_initial_Circuit(qubits, num_qubits, backend, n)
+    #circuits = make_initial_Circuit(qubits, num_qubits, backend, n)
+    circuits = make_initial_Circuit2(backend)
     qubits = set()
     for circuit in circuits:
         for q in backend.compile(circuit).get_qubit_indices():
@@ -297,11 +317,11 @@ def main():
     noisedataframe = experiment.analyze()
     # %% Save all the data. End Tomography Only
     print_time("Saving data")
-    with open(namebase + "experiment.pickle", "wb") as f:
-        processor = experiment._procspec._processor
-        experiment._procspec._processor = None
-        pickle.dump(experiment, f)
-        experiment._procspec._processor = processor
+    #with open(namebase + "experiment.pickle", "wb") as f:
+    #    processor = experiment._procspec._processor
+    #    experiment._procspec._processor = None
+    #    pickle.dump(experiment, f)
+    #    experiment._procspec._processor = processor
 
     coeffs_dict_list = []
     infidelities_list = []
@@ -315,10 +335,11 @@ def main():
         pickle.dump(coeffs_dict_list, f)
     with open("server_run_collection/" + namebase + "infidelities.pickle", "wb") as f:
         pickle.dump(infidelities_list, f)
-    (noise_model, twoqubit_error_template, singlequbit_error_template) = get_noise_model()
+    (twoqubit_error_template, singlequbit_error_template) = get_noise_model()
     with open("server_run_collection/" + namebase + "noise_model.pickle", "wb") as f:
-       pickle.dump((noise_model, twoqubit_error_template, singlequbit_error_template), f)
-        
+       pickle.dump((twoqubit_error_template, singlequbit_error_template), f)
+    #with open("server_run_collection/" + namebase + "circuits.pickle", "wb") as f:
+    #    pickle.dump(circuits, f)
     #process.join()
     if onlyTomography:
         print_time("Tomography Ended")
@@ -435,6 +456,7 @@ def main():
 
 # %% Start Program
 if __name__ == "__main__":
+    print_time("Starting")
     from sys import platform
     if platform == "linux" or platform == "linux2":
         main()
