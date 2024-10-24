@@ -4,4 +4,4 @@ WORKDIR /usr/local/bin
 
 COPY . .
 
-CMD ["python", "test.py"]
+CMD ["python", "TrotterExample.py", "--onlyTomography", "--pntsamples", "4", "--pntsinglesamples", "10"]

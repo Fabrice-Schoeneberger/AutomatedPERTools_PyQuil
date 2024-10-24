@@ -227,26 +227,26 @@ def main():
 
     # %% imports and system path appending
     import pickle
-    from matplotlib import pyplot as plt
     import os
     import json
 
     import os
     import sys
     i = 0
-    parentfolder = "pyquil_program"
+    #parentfolder = "pyquil_program"
     folder = os.getcwd()
-    while not folder.endswith(parentfolder):
+    import sys
+    print(sys.version)
+    while not "pauli_lindblad_per" in os.listdir(folder):
         folder = os.path.dirname(folder)
         i+=1
         if i == 50:
-            raise Exception("Parent Folder not found. Is "+ parentfolder + " the correct name?")
+            raise Exception("pauli_lindblad_per not found. Please make sure it is in this or a parent folder")
     sys.path.append(os.path.join(folder, "pauli_lindblad_per"))
 
 
     from tomography.experiment import SparsePauliTomographyExperiment as tomography
 
-    plt.style.use("ggplot")
     # %% Decipher the Arguments
 
     backend = get_backend(args)
@@ -426,7 +426,7 @@ def main():
         json.dump(savi, file)
 
     # %% Plot PER
-    plt.figure(figsize=(10,6))
+    """ plt.figure(figsize=(10,6))
     for i, noise in enumerate(noise_strengths):
         plt.plot(range(1,15), [res[i] for res in results_at_noise], 'x', label='N='+str(noise))
         
@@ -439,7 +439,7 @@ def main():
     plt.title("Trotter Simulation with PER")
     plt.xlabel("Trotter Steps")
     plt.ylabel("Z Magnetization")
-    plt.savefig(namebase+"Trotter_Sim_PER.png")
+    plt.savefig(namebase+"Trotter_Sim_PER.png") """
     # %% Plot Expectation vs Noise Strength and save results
 
     with open(namebase + "circuit_results.pickle", "wb") as f:

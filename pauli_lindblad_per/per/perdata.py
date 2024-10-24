@@ -1,6 +1,5 @@
 import numpy as np
 import math
-from matplotlib import pyplot as plt
 from scipy.optimize import curve_fit
 
 class PERData:
@@ -103,6 +102,8 @@ class PERData:
     def plot(self):
         """Plots the expectation values against an exponential fit.
         """
+        # Not usable with docker forest/rigetti
+        from matplotlib import pyplot as plt
 
         fig, ax = plt.subplots()
         ax.errorbar(self.get_strengths(), self.get_expectations(), yerr=[self.get_std_of_strengths(strength) for strength in self.get_strengths()],  linestyle = "None", marker = "x", color = "tab:blue", capsize=5)

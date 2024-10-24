@@ -108,18 +108,30 @@ class PyquilCircuit(Circuit):
 
     def add_pauli(self, pauli : PyQuilPauli):
         for q,p in enumerate(pauli.to_label()):
-            match p:
-                case "I":
-                    continue
-                case "X":
-                    self.qc += X(q)
-                    continue
-                case "Y":
-                    self.qc += Y(q)
-                    continue
-                case "Z":
-                    self.qc += Z(q)
-                    continue
+            # No match case to make if compatible with python 3.9.17 and earlier (used in docker forest/rigetti at time of writing: 24.10.2024)
+            if p == "I":
+                continue
+            elif p == "X":
+                self.qc += X(q)
+                continue
+            elif p == "Y":
+                self.qc += Y(q)
+                continue
+            elif p == "Z":
+                self.qc += Z(q)
+                continue
+            #match p:
+            #    case "I":
+            #        continue
+            #    case "X":
+            #        self.qc += X(q)
+            #        continue
+            #    case "Y":
+            #        self.qc += Y(q)
+            #        continue
+            #    case "Z":
+            #        self.qc += Z(q)
+            #        continue
 
     # These two do the same thing. PyQuil calls this operation fence, so I added that. The barrier instruction is just there for qiskit parrity
     def fence(self):

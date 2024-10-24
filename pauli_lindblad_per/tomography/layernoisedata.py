@@ -1,6 +1,5 @@
 from scipy.optimize import nnls
 import numpy as np
-from matplotlib import pyplot as plt
 
 from framework.noisemodel import NoiseModel
 from tomography.layerlearning import LayerLearning
@@ -190,6 +189,8 @@ class LayerNoiseData:
     def plot_coeffs(self, *links):
         """Plot the model coefficients in the generator of the sparse model corresponding
         to the current circuit layer"""
+        # Not usable with docker forest/rigetti
+        from matplotlib import pyplot as plt
 
         coeffs_dict = dict(self.noisemodel.coeffs)
         groups = self._model_terms(links)
@@ -202,6 +203,8 @@ class LayerNoiseData:
 
     def graph(self, *links):
         """Graph the fits values for a certain subset of Pauli terms"""
+        # Not usable with docker forest/rigetti
+        from matplotlib import pyplot as plt
 
         groups = self._model_terms(links)
         fig, ax = plt.subplots()
@@ -214,6 +217,8 @@ class LayerNoiseData:
 
     def plot_infidelitites(self, *links):
         """Plot the infidelities of a subset of Pauli terms"""
+        # Not usable with docker forest/rigetti
+        from matplotlib import pyplot as plt
 
         groups = self._model_terms(links)
         fig, ax = plt.subplots()
