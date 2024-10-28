@@ -106,7 +106,7 @@ class PyQuilPauli(Pauli):
         # Import has to be here cause calling self.H(q) will transmit 2 arguments and break the code
         from pyquil.gates import H, S
         circ = qc.copy_empty() #copy_everything_except_instructions()
-        for q in qc.qc.get_qubit_indices(): #this may not work, because qc.get_qubit_indices() only returns used qubits. But then, is it important?
+        for q in qc.qubits(): #this may not work, because qc.get_qubit_indices() only returns used qubits. But then, is it important?
             p = self.pauli.pauli_string([q])
             if p == "X":
                 circ.qc += H(q)

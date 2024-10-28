@@ -102,9 +102,20 @@ class PyquilCircuit(Circuit):
     
     def __init__(self, qc: Program):
         self.qc = qc
+        self._qubits = set(self.qc.get_qubit_indices())
+        if len(self._qubits) > 0:
+            self._num_qubits = max(self._qubits)
+        else: 
+            self._num_qubits = 0
 
     def add_instruction(self, inst : PyQuilInstruction):
         self.qc += inst.instruction
+        for a in inst.support():
+            self._qubits.add(a)
+        if len(self._qubits) > 0:
+            self._num_qubits = max(self._qubits)
+        else: 
+            self._num_qubits = 0
 
     def add_pauli(self, pauli : PyQuilPauli):
         for q,p in enumerate(pauli.to_label()):
@@ -150,16 +161,22 @@ class PyquilCircuit(Circuit):
         self.qc += other.qc
     
     def copy_empty(self):
-        return PyquilCircuit(self.qc.copy_everything_except_instructions())
+        new_circuit = PyquilCircuit(self.qc.copy_everything_except_instructions())
+        new_circuit._qubits = self._qubits
+        new_circuit._num_qubits = self._num_qubits
+        return new_circuit
 
     def inverse(self) -> Self:
-        return PyquilCircuit(self.qc.dagger())
+        new_circuit = PyquilCircuit(self.qc.dagger())
+        new_circuit._qubits = self._qubits
+        new_circuit._num_qubits = self._num_qubits
+        return new_circuit
     
     def qubits(self):
-        return self.qc.get_qubit_indices()
+        return self._qubits
 
     def num_qubits(self):
-        return len(self.qubits())
+        return self._num_qubits
 
     def original(self):
         return self.qc

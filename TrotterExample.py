@@ -142,10 +142,13 @@ def executor(circuits, backend, shots, apply_noise=True):
     def take_counts(array):
         dic = dict()
         for a in array:
-            if tuple(k for k in a) in dic:
-                dic[tuple(k for k in a)] += 1
+            a = tuple(k for k in a)
+            while len(a) < len(backend.qubits()):
+                a += (0,)
+            if a in dic:
+                dic[a] += 1
             else:
-                dic[tuple(k for k in a)] = 1
+                dic[a] = 1
         return dic
     counts = []
     for circuit in circuits:
@@ -153,6 +156,8 @@ def executor(circuits, backend, shots, apply_noise=True):
         if apply_noise:
             apply_noise_model(circuit, backend, get_noise_model()[0], "CNOT")
         result = backend.run((circuit.wrap_in_numshots_loop(shots=shots))).get_register_map()['ro']
+        logger.info(take_counts(result))
+        logger.info(backend.qubits())
         counts.append(take_counts(result))
     return counts
 

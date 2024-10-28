@@ -96,6 +96,8 @@ class Instance:
         estimator = 0
         result = self._untwirl_result()
         #compute locations of non-idetity terms (reversed indexing)
+        #logger.info(pauli)
+        #logger.info(result)
         pz = list(reversed([{pauli_type("I"):'0'}.get(p,'1') for p in pauli]))
         #compute estimator
         #logger.info("%s"%len(result.keys()))
