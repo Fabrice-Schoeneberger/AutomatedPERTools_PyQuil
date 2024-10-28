@@ -167,7 +167,25 @@ class PyquilCircuit(Circuit):
         return new_circuit
 
     def inverse(self) -> Self:
-        new_circuit = PyquilCircuit(self.qc.dagger())
+        import numpy as np
+        from pyquil.quil import DefGate
+        s_dagger = np.array([[ 1+0j,  0+0j],
+                   [ 0+0j,  0-1j]])
+        # Get the Quil definition for the new gate
+        s_dagger_definition = DefGate("S_DAGGER", s_dagger)
+        # Get the gate constructor
+        S_DAGGER = s_dagger_definition.get_constructor()
+
+        new_qc = self.qc.copy_everything_except_instructions()
+        for inst in reversed(self.qc):
+            if str(inst.name) == "S":
+                new_qc += s_dagger_definition
+                new_qc += S_DAGGER(inst.qubits[0])
+            elif str(inst.name) == "H":
+                new_qc += H(inst.qubits[0])
+            else:
+                raise Exception("Not S or H gate", inst.name)
+        new_circuit = PyquilCircuit(new_qc)
         new_circuit._qubits = self._qubits
         new_circuit._num_qubits = self._num_qubits
         return new_circuit

@@ -8,5 +8,6 @@ docker build -t automatedpertools/programm:1.0 .
 docker run -ti --name AutomatedPERTools automatedpertools/programm:1.0
 
 docker cp AutomatedPERTools:./usr/local/bin/server_run_collection .
+docker cp AutomatedPERTools:./usr/local/bin/experiment.log .
 
 docker rm AutomatedPERTools
