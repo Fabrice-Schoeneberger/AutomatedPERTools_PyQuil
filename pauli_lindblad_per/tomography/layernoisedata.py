@@ -69,10 +69,6 @@ class LayerNoiseData:
     def fit_noise_model(self):
         """Fit all of the terms, and then use obtained SPAM coefficients to make degerneracy
         lifting estimates"""
-        from collections import Counter
-        for key in self._term_data:
-            if self._term_data[key]._count != Counter() or self._term_data[key]._single_count > 0:
-                logger.info(key)
 
         for term in self._term_data.values(): #perform all pairwise fits
             term.fit()
@@ -104,7 +100,7 @@ class LayerNoiseData:
             indexes = []
             for i, f in enumerate(string):
                 if f != "I":
-                    indexes.append(len(string)- i-1)
+                    indexes.append(i)
             return indexes
 
         F1 = [] #First list of terms
@@ -126,24 +122,24 @@ class LayerNoiseData:
             if self._issingle(datum):
                 F2.append(datum.pauli)
             else:
-                logger.info(datum.pair)
                 pair = datum.pair
                 F2.append(pair)
 
         #create commutativity matrices
         M1 = [[sprod(a,b) for a in F1] for b in F1]
         M2 = [[sprod(a,b) for a in F1] for b in F2]
-        logger.info(F1)
-        logger.info(F2)
-        logger.info(M1)
-        logger.info(M2)
+        logger.info(("F1",F1))
+        logger.info(("F2", F2))
+        logger.info(("fidelities", fidelities))
+        logger.info(("M1", M1))
+        logger.info(("M2", M2))
         #check to make sure that there is no degeneracy
         if np.linalg.matrix_rank(np.add(M1,M2)) != len(F1):
             raise Exception("Matrix is not full rank, something went wrong!")
        
         #perform least-squares estimate of model coefficients and return as noisemodel 
         coeffs,_ = nnls(np.add(M1,M2), -np.log(fidelities)) 
-
+        logger.info(("coeffs", coeffs))
         if self.sum_over_lambda:
             paulilength = len(F1[0].to_label())
             for qubit in self.plusone:
