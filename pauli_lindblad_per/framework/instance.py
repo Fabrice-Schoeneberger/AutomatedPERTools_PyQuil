@@ -69,8 +69,8 @@ class Instance:
         """Apply operators to change from the measurement basis into the computational basis
         """
         hcirc = self.meas_basis.basis_change(self._circ).inverse()
-        if not self._procspec is None:
-            hcirc = self._procspec._processor.compile(hcirc)
+        #if not self._procspec is None:
+        #    hcirc = self._procspec._processor.compile(hcirc)
         self._circ.compose(hcirc) #TODO
         
     def _untwirl_result(self):
@@ -96,18 +96,11 @@ class Instance:
         estimator = 0
         result = self._untwirl_result()
         #compute locations of non-idetity terms (reversed indexing)
-        #logger.info(pauli)
-        #logger.info(result)
-        pz = list(reversed([{pauli_type("I"):'0'}.get(p,'1') for p in pauli]))
+        pz = list(([{pauli_type("I"):'0'}.get(p,'1') for p in pauli]))
         #compute estimator
-        #logger.info("%s"%len(result.keys()))
-        #logger.info("Here come the keys:")
         for key in result.keys():
-            #logger.info(key)
             #compute the overlap in the computational basis
             sgn = sum([{('1','1'):1}.get((pauli_bit, key_bit), 0) for pauli_bit, key_bit in zip(pz, key)])
             #update estimator
             estimator += (-1)**sgn*result[key]
-            #logger.info((-1)**sgn*result[key])
-
         return estimator/sum(result.values())

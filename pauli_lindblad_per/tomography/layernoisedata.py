@@ -40,7 +40,7 @@ class LayerNoiseData:
 
     def add_expectation(self, inst : BenchmarkInstance):
         """Add the result of a benchmark instance to the correct TermData object"""
-
+        
         basis = inst.meas_basis
         prep = inst.prep_basis
         pair_sim_meas = {}
@@ -69,6 +69,10 @@ class LayerNoiseData:
     def fit_noise_model(self):
         """Fit all of the terms, and then use obtained SPAM coefficients to make degerneracy
         lifting estimates"""
+        from collections import Counter
+        for key in self._term_data:
+            if self._term_data[key]._count != Counter() or self._term_data[key]._single_count > 0:
+                logger.info(key)
 
         for term in self._term_data.values(): #perform all pairwise fits
             term.fit()

@@ -138,28 +138,51 @@ def apply_noise_model(prog, backend, error_template, gate):
         for i in backend.qubits():
             prog.define_noisy_gate(gate, [i], noise_model)
 
+def take_counts(array, backend):
+    dic = dict()
+    for a in array:
+        a = "".join(list(str(k) for k in a))
+        while len(a) < len(backend.qubits()):
+            a += "0"
+        if a in dic:
+            dic[a] += 1
+        else:
+            dic[a] = 1
+    return dic
+
 def executor(circuits, backend, shots, apply_noise=True):
-    def take_counts(array):
-        dic = dict()
-        for a in array:
-            a = tuple(k for k in a)
-            while len(a) < len(backend.qubits()):
-                a += (0,)
-            if a in dic:
-                dic[a] += 1
-            else:
-                dic[a] = 1
-        return dic
+    #import multiprocessing, os, pickle, uuid
+    #manager = multiprocessing.Manager()
+    #counts = manager.list()
+    #lock = multiprocessing.Lock()
     counts = []
     for circuit in circuits:
-        logger.info(circuit)
         if apply_noise:
             apply_noise_model(circuit, backend, get_noise_model()[0], "CNOT")
+        #process = multiprocessing.Process(target=executer_final, args=(circuit, backend, shots, counts, lock))
+        #process.start()
+        #while len(multiprocessing.active_children()) > multiprocessing.cpu_count():
+            #print("test?",end='\r')
+        #    pass
         result = backend.run((circuit.wrap_in_numshots_loop(shots=shots))).get_register_map()['ro']
-        logger.info(take_counts(result))
-        logger.info(backend.qubits())
-        counts.append(take_counts(result))
+        counts.append(take_counts(result, backend))
+    #while len(multiprocessing.active_children()) > 1:
+        #print("Apply Cross Talk Noise %s/%s" % (i+1, len_circuits), "; Number of active Threads: %03s" % len(multiprocessing.active_children()), "; List length: %s" % len(new_circuits), end='\r')
+    #    pass
+    #manager = None
+    #counts = list(counts)
+    for i, r in enumerate(counts):
+        if not 1024 in r.values():
+            circuit = circuits[i]
+            liste = [str(inst) for inst in circuit if not "PRAGMA" in str(inst) and not "DEFGATE" in str(inst) and not "DECLARE" in str(inst)]
+            #print(liste)
+            #print(r)
     return counts
+
+def executer_final(circuit, backend, shots, counts, lock):
+    result = backend.run((circuit.wrap_in_numshots_loop(shots=shots))).get_register_map()['ro']
+    with lock:
+        counts.append(take_counts(result, backend))
 
 def calculate_with_simple_backend(circuits, shots, persamples, backend, qubits, n, apply_cross_talk=False):
     res = []

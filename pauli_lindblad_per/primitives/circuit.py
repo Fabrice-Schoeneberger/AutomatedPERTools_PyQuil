@@ -102,7 +102,7 @@ class PyquilCircuit(Circuit):
     
     def __init__(self, qc: Program):
         self.qc = qc
-        self._qubits = set(self.qc.get_qubit_indices())
+        self._qubits = set(self.qc.get_qubit_indices()) #set(i for i in range(max(self.qc.get_qubit_indices())))
         if len(self._qubits) > 0:
             self._num_qubits = max(self._qubits)
         else: 
