@@ -114,8 +114,8 @@ class LayerNoiseData:
                 for index in indexes:
                     if not index in self.used_qubits:
                         skip = True
-                if skip:
-                    continue
+                #if skip:
+                #    continue
             F1.append(datum.pauli)
             fidelities.append(datum.fidelity)
             #If the Pauli is conjugate to another term in the model, a degeneracy is present

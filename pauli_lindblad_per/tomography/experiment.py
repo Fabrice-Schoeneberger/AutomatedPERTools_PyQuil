@@ -56,7 +56,7 @@ class SparsePauliTomographyExperiment:
         for layer in self._profiles:
             logger.info(layer)
 
-        self._procspec = ProcessorSpec(inst_map, processor, unused_qubits, plusone)
+        self._procspec = ProcessorSpec(inst_map, processor, [], set()) # unused_qubits, plusone)
         self.instances = []
         self._inst_map = inst_map
         self.unused_qubits = unused_qubits
@@ -68,7 +68,7 @@ class SparsePauliTomographyExperiment:
             learning = LayerLearning(l,self._procspec)
             self._layers.append(learning)
 
-        self.analysis = Analysis(self._layers, self._procspec, sum_over_lambda=sum_over_lambda, plusone=plusone, used_qubits=used_qubits)
+        self.analysis = Analysis(self._layers, self._procspec, sum_over_lambda=sum_over_lambda, plusone=plusone)
 
     def generate(self, samples, single_samples, depths):
         """This method is used to generate the experimental benchmarking procedure. The samples
