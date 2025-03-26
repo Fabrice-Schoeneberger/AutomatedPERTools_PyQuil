@@ -16,10 +16,9 @@ class LayerNoiseData:
     """This class is responsible for aggregating the data associated with a single layer,
     processing it, and converting it into a noise model to use for PER"""
 
-    def __init__(self, layer : LayerLearning, sum_over_lambda=False, plusone = set(), used_qubits = None):
+    def __init__(self, layer : LayerLearning, plusone = set(), used_qubits = None):
         self._term_data = {} #keys are terms and the values are TermDatas
         self.layer = layer
-        self.sum_over_lambda=sum_over_lambda
         self.plusone = plusone
         self.used_qubits = used_qubits
 
@@ -140,31 +139,6 @@ class LayerNoiseData:
         #perform least-squares estimate of model coefficients and return as noisemodel 
         coeffs,_ = nnls(np.add(M1,M2), -np.log(fidelities)) 
         logger.info(("coeffs", coeffs))
-        if self.sum_over_lambda:
-            paulilength = len(F1[0].to_label())
-            for qubit in self.plusone:
-                logger.info([f.to_label() for f in F1])
-                #Filter out all model terms with the extra qubit active with at least one connected qubit
-                filtered_and_cut_list = [f for f in F1 if f.to_label()[paulilength-1-qubit]!='I' and (f.to_label()[:paulilength-1-qubit]+f.to_label()[paulilength-1-qubit+1:] != "I"*(paulilength-1))]
-                #In case of 2 or more connected qubits we need to seperate them
-                sorted_lists = dict()
-                for f in filtered_and_cut_list:
-                    for i, char in enumerate(f.to_label()):
-                        #find which *other* qubits are uses and sort them into lists
-                        if char != "I" and i != paulilength-1-qubit:
-                            if not i in sorted_lists: #make the new list if it didn't exist so far
-                                sorted_lists[i] = []
-                            sorted_lists[i].append(f)
-                            break
-                for index in sorted_lists:
-                    #for each connected main qubit, filter them by x,y,z and sum their coeffs up
-                    for pauli in "XYZ":
-                        x = sum([coeffs[F1.index(model_term)] for model_term in sorted_lists[index] if model_term.to_label()[index]==pauli])
-                        #add these coeffs to the single pauli coeffs of the main qubit. The extra fluf in coeffs[...] is just to find the correct coeff
-                        coeffs[[F1.index(f) for f in F1 if f.to_label()[i]==pauli and f.to_label()[:i]+f.to_label()[i+1:]=="I"*(paulilength-1)][0]] += x
-            logger.info("Summed extra qubits up and added it to main")
-
-
         self.noisemodel = NoiseModel(self.layer._cliff_layer, F1, coeffs)
 
     def _model_terms(self, links): #return a list of Pauli terms with the specified support

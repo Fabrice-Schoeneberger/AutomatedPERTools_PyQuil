@@ -23,7 +23,7 @@ class SparsePauliTomographyExperiment:
     instance for each distinct layer, running the analysis, and then returning a PERCircuit
     with NoiseModels attached to each distinct layer"""
 
-    def __init__(self, circuits, inst_map, backend, sum_over_lambda=False):
+    def __init__(self, circuits, inst_map, backend):
 
         circuit_interface = None
         #Make sure it's a quantumcircuit as others don't work
@@ -60,7 +60,6 @@ class SparsePauliTomographyExperiment:
         self.instances = []
         self._inst_map = inst_map
         self.unused_qubits = unused_qubits
-        self.sum_over_lambda = sum_over_lambda
         self._layers = None
 
         self._layers = []
@@ -68,7 +67,7 @@ class SparsePauliTomographyExperiment:
             learning = LayerLearning(l,self._procspec)
             self._layers.append(learning)
 
-        self.analysis = Analysis(self._layers, self._procspec, sum_over_lambda=sum_over_lambda, plusone=plusone)
+        self.analysis = Analysis(self._layers, self._procspec, plusone=plusone)
 
     def generate(self, samples, single_samples, depths):
         """This method is used to generate the experimental benchmarking procedure. The samples
@@ -83,7 +82,7 @@ class SparsePauliTomographyExperiment:
         for l in self._layers:
             l.procedure(samples, single_samples, depths)
 
-    def run(self, executor, shots, do_cross_talk=False, apply_cross_talk=None):
+    def run(self, executor, shots, do_cross_talk=False, apply_cross_talk=None, noise_model=None):
         """This method produces a list of circuits in the native representation, passes them 
         as a list to the executor method, and associates the result with the benchmark instances
         that produced it"""
@@ -98,7 +97,7 @@ class SparsePauliTomographyExperiment:
         if do_cross_talk and apply_cross_talk:
             circuits = apply_cross_talk(circuits, self._procspec._processor._qpu)
 
-        results = executor(circuits, self._procspec._processor._qpu, shots)
+        results = executor(circuits, self._procspec._processor._qpu, shots, noise_model=noise_model)
 
         for res,inst in zip(results, instances): #TODO: find out if order can be preserved
             inst.add_result(res)

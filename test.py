@@ -1,4 +1,4 @@
-from TrotterExample import executor, get_backend
+from main import executor, get_backend
 from pyquil import Program
 from pyquil.gates import H, CNOT, Z, MEASURE, S, X, Y, I, RX, RZ, FENCE
 from pyquil.quilbase import Declare
