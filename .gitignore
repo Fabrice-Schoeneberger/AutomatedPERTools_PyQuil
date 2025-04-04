@@ -5,3 +5,4 @@ __pycache__
 .venv2/
 copy_file_over.bat
 *.pickle
+.vscode/
